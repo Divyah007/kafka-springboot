@@ -1,0 +1,36 @@
+kafka producer consumer +dlt
+======================
+1. add spring-kafka dependency in pom.xml
+2. create configuration class to create new topic using TopicBuilder, by reading the topic name from app.properties file
+===KAFKA PRODUCER===
+3.create component class for kafka producer having methods to produce messages using  kafkaTemplate.send(topicName, message);
+4.if we want to produce any message, we will call the method written to produce the message inside producer class using a controller api.
+===KAFKA CONSUMER===
+5. create service class for kafka consumer
+	5a. the consumer method will be annotated with
+  @KafkaListener(topics = "${spring.kafka.topic.name}", groupId = "${spring.kafka.consumer.group-id}")
+	5a I. case 1--> without try and catch
+		if any exception occured,it will throw the exception on the sts console. then we cannot proceed further and our input message is lost
+	5a II. case 2--> with try and catch
+	if any exception occured,it is handled by catch block and  then we cannot proceed further and our input message is lost, here we can store the input message in the db inside catch block and Then we can have an endpoint to GET these messages from db for later manual fix.But in realtime it isn't right way.
+	5a III. case 3--> without try and catch , if exception occurs, kafka will again retry n-1 times to consume the message using @RetryableTopic annotation with no. of attempts and delay.even after retrying for n-1 times , at n-1th attempt if it fails then the message will be sent to dlt.
+  @RetryableTopic(attempts = "3") // if we give n attempts then only n-1 times it will retry, at n-1th attempt if it fails then the input message will be sent to dlt
+6. DLT-->
+A Dead Letter Topic (DLT) in Kafka is a special topic where messages that cannot be processed successfully after a 
+certain number of retries are sent. This allows you to track and handle problematic messages separately from your main processing flow.
+	6a.   @DltHandler
+  each consumer should be in separate file, for each consumer we can have dlthandler. the dlt handler sholuld 
+  be there in the same file where the kafka consumer is present
+  
+  inside dlthandler
+   save the records to a database. 
+  
+ we can do manual fix for the failed messages
+    1. endpoint to GET these messages.
+  2.another endpoint where you can post/patch/put the fixed record.
+  
+  @DltHandler // it will listen the failure message
+  public void listenDLT(String message) {
+	  log.error("DLT========={}",message);
+	  
+  }
